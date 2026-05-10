@@ -2,29 +2,50 @@
 
 **Course Project: Human + AI Scientific Discovery**
 
-This project evaluates MiniCheck-style small fact-checkers under two stress conditions:
+## Overview
 
-1. **Long-context natural stress**: Testing on documents ranging from hundreds to 74k tokens
-2. **Adversarial injection**: Injecting synthetic hallucinations at beginning, middle, and end positions
+This project evaluates MiniCheck-style fact-checkers under long-context and adversarial stress:
+
+1. **Long-context evaluation**: Testing models on documents ranging from 57 to 74,488 tokens
+2. **Adversarial injection**: Testing robustness against hallucinations injected at different positions
 
 ## Repository Structure
 
 ```
 .
-├── src/                    # Evaluation source code
-│   ├── evaluate.py         # Main evaluation pipeline
+├── src/                    # Source code
+│   ├── evaluate.py         # Main evaluation
 │   ├── adversarial_injection.py  # Adversarial experiments
-│   ├── final_analysis.py  # Analysis and aggregation
-│   ├── plot_*.py          # Visualization scripts
-│   └── ...
-├── data/                  # Raw evaluation results (JSON)
-│   ├── results_*.json     # Model evaluation results
-│   └── adversarial_*.json # Adversarial injection results
-├── final_results/         # Aggregated results and figures
-│   ├── summary_*.csv      # Aggregated data tables
-│   └── *.png              # Generated figures
-└── paper/                 # Final report
-    └── paper.tex          # NeurIPS 2026 format report
+│   ├── final_analysis.py   # Analysis and aggregation
+│   └── plot_*.py          # Visualization scripts
+├── paper.pdf               # Final report (NeurIPS 2026 format)
+└── README.md
+```
+
+## Setup
+
+```bash
+conda create -n minicheck-eval python=3.10
+conda activate minicheck-eval
+pip install pandas matplotlib seaborn numpy
+```
+
+## Reproducing Results
+
+```bash
+# Download datasets from original sources:
+# - ExpertQA, RAGTruth, SciFact: LLM-AggreFact (HuggingFace)
+# - SummHay, TofuEval: Contact dataset authors
+
+# Run evaluation
+cd src
+python evaluate.py --model flan-t5-large --dataset ExpertQA
+
+# Run adversarial injection
+python adversarial_injection.py
+
+# Generate analysis and figures
+python final_analysis.py --results_dir /path/to/results --output_dir /path/to/output
 ```
 
 ## Key Findings
@@ -36,61 +57,13 @@ This project evaluates MiniCheck-style small fact-checkers under two stress cond
 | Adversarial vulnerability | 57.5% fooling rate; entity hallucinations most effective (38.3% detection) |
 | No positional rescue | Injection detection is position-invariant |
 
-## Quick Start
-
-```bash
-# Activate environment
-conda activate minicheck-eval
-
-# Run evaluation
-python src/evaluate.py --model flan-t5-large --dataset ExpertQA
-
-# Generate analysis and figures
-python src/final_analysis.py --results_dir data --output_dir final_results
-```
+**Note**: The full U-shaped "lost in the middle" recovery curve is only observable on ExpertQA, which is the only dataset with samples across all 5 length bins. Other datasets lack samples in longer bins due to natural document length distributions.
 
 ## Models Evaluated
 
 - **flan-t5-large** (770M): MiniCheck's default lightweight fact-checker
 - **Bespoke-MiniCheck-7B** (7B): Larger specialized fact-checker
 - OpenRouter API: Gemma-4-26B, Gemma-4-31B, GPT-OSS-120B, GPT-OSS-20B, Trinity-Large
-
-## Datasets
-
-| Dataset | Avg Tokens | Samples |
-|---------|-----------|---------|
-| ExpertQA | 433 | 3,702 |
-| RAGTruth | 412 | 16,371 |
-| SummHay | 74,488 | 100 |
-| SciFact | 57 | 188 |
-| TofuEval-MediaS | 778 | 726 |
-| TofuEval-MeetB | 792 | 100 |
-| Lfqa | 320 | 100 |
-
-## About the "Lost in the Middle" U-Shape
-
-The "lost in the middle" phenomenon (U-shaped performance curve) is **only observable on ExpertQA** because it is the **only dataset with samples in all 5 length bins** (0-500, 500-1000, 1000-2000, 2000-4000, 4000+ tokens).
-
-Other datasets lack sufficient samples in longer bins:
-- **RAGTruth**: Only 3 bins (0-500, 500-1000, 1000-2000) - shows degradation, no recovery
-- **Lfqa**: Only 2 bins (0-500, 500-1000)
-- **TofuEval-MeetB**: Only 2 bins (500-1000, 1000-2000)
-- **SciFact**: Only 1 bin (0-500)
-- **SummHay**: Only 1 bin (4000+)
-
-This is a **data limitation**, not a model limitation. The models do show the U-shape on ExpertQA.
-
-## Requirements
-
-- Python 3.10+
-- pandas, matplotlib, seaborn, numpy
-- CUDA-capable GPU for local model inference
-
-## References
-
-- Tang et al. MiniCheck: Efficient Fact-Checking of LLMs on Grounding Documents (EMNLP 2024)
-- Laban et al. The Good, The Bad, and The Summary (arXiv 2024)
-- Wang et al. AlignScore: Evaluating Factual Consistency (ACL 2023)
 
 ## Author
 

@@ -28,14 +28,14 @@
 \maketitle
 
 \begin{abstract}
-Retrieval-augmented generation (RAG) systems retrieve long, noisy documents that challenge fact-checking models. We evaluate MiniCheck-style small fact-checkers (\texttt{flan-t5-large}, \texttt{Bespoke-MiniCheck-7B}) under two stress conditions: (1) natural long contexts ranging from hundreds to 74k tokens, and (2) adversarial hallucinations injected at beginning, middle, and end positions. Our key findings are: (1) Both models exhibit a ``lost in the middle'' phenomenon on ExpertQA---balanced accuracy (BAcc) drops 9-10\% at 1k-2k tokens then recovers at longer lengths. Only ExpertQA has sufficient length-bin coverage to show the full U-shaped recovery curve; other datasets lack samples in longer bins. (2) Models achieve near-perfect BAcc on 74k-token SummHay documents via chunking but throughput collapses to 3.9 samples/minute. (3) Adversarial injection fools the models 57.5\% of the time; fabricated entities are hardest to detect (38.3\% detection rate). (4) No positional rescue exists---injection detection is nearly identical across beginning, middle, and end positions.
+Retrieval-augmented generation (RAG) systems retrieve long, noisy documents that challenge fact-checking models. We evaluate MiniCheck-style small fact-checkers (\texttt{flan-t5-large}, \texttt{Bespoke-MiniCheck-7B}) under two stress conditions: (1) natural long contexts ranging from hundreds to 74k tokens, and (2) adversarial hallucinations injected at beginning, middle, and end positions. Our key findings are: (1) Both models exhibit a ``lost in the middle'' phenomenon on ExpertQA---balanced accuracy (BAcc) drops 9-10\% at 1k-2k tokens then recovers at longer lengths. Only ExpertQA has sufficient length-bin coverage to show the full U-shaped recovery curve; other datasets lack samples in longer bins due to natural length distributions. (2) Models achieve near-perfect BAcc on 74k-token SummHay documents via chunking but throughput collapses to 3.9 samples/minute. (3) Adversarial injection fools the models 57.5\% of the time; fabricated entities are hardest to detect (38.3\% detection rate). (4) No positional rescue exists---injection detection is nearly identical across beginning, middle, and end positions.
 \end{abstract}
 
 \section{Introduction}
 
-Large language models (LLMs) deployed in retrieval-augmented generation (RAG) pipelines must verify facts against retrieved documents spanning tens of thousands of tokens. Specialized fact-checkers such as MiniCheck~\cite{tang2024minicheck} and AlignScore~\cite{zha2023alignscore} offer efficient alternatives to large LLMs but are predominantly trained and evaluated on short, clean snippets. This creates a critical gap: their robustness under realistic RAG conditions remains poorly understood.
+Large language models (LLMs) deployed in retrieval-augmented generation (RAG) pipelines must verify facts against retrieved documents spanning tens of thousands of tokens. Specialized fact-checkers such as MiniCheck (Tang et al., 2024) and AlignScore (Wang et al., 2023) offer efficient alternatives to large LLMs but are predominantly trained and evaluated on short, clean snippets. This creates a critical gap: their robustness under realistic RAG conditions remains poorly understood.
 
-Two key failure modes emerge in long-context RAG: (1) context degradation, where accuracy drops as document length increases, and (2) adversarial vulnerability, where injected hallucinations bypass detection mechanisms. Prior work on ``lost in the middle''~\cite{laban2024summary} shows that LLMs struggle to utilize information buried in extended contexts; it is an open question whether small fact-checkers with chunking-based architectures suffer similar degradation.
+Two key failure modes emerge in long-context RAG: (1) context degradation, where accuracy drops as document length increases, and (2) adversarial vulnerability, where injected hallucinations bypass detection mechanisms. Prior work on ``lost in the middle'' (Laban et al., 2024) shows that LLMs struggle to utilize information buried in extended contexts; it is an open question whether small fact-checkers with chunking-based architectures suffer similar degradation.
 
 We evaluate MiniCheck-style fact-checkers under two stress conditions:
 \begin{itemize}
@@ -53,9 +53,9 @@ Our contributions:
 
 \section{Related Work}
 
-MiniCheck~\cite{tang2024minicheck} uses a chunking-and-max strategy: documents are split into sentence-preserving chunks, each chunk is scored, and the maximum support probability determines the final verdict. This approach enables handling long documents but assumes the correct chunk will achieve the highest score.
+MiniCheck (Tang et al., 2024) uses a chunking-and-max strategy: documents are split into sentence-preserving chunks, each chunk is scored, and the maximum support probability determines the final verdict. This approach enables handling long documents but assumes the correct chunk will achieve the highest score.
 
-Prior work on ``lost in the middle''~\cite{laban2024summary} demonstrates that LLMs perform worse on information located in the middle of long contexts compared to beginning or end positions. We investigate whether chunking-based fact-checkers exhibit a similar U-shaped performance curve.
+Prior work on ``lost in the middle'' (Laban et al., 2024) demonstrates that LLMs perform worse on information located in the middle of long contexts compared to beginning or end positions. We investigate whether chunking-based fact-checkers exhibit a similar U-shaped performance curve.
 
 Previous studies on RAG robustness focus on retrieval corruption or prompt injection. We introduce a novel stress test: injecting synthetic hallucinations directly into the grounding documents at controlled positions, measuring whether the fact-checker can detect them.
 
@@ -139,22 +139,26 @@ Figure~\ref{fig:bacc_matrix} shows the full BAcc matrix. Key observations:
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.85\textwidth]{../final_results/context_degradation_by_dataset.png}
-\caption{BAcc by document-length bin across datasets. ExpertQA has 5 bins showing clear U-shape with recovery. RAGTruth has 3 bins showing degradation but lacks recovery bins at 2000+ tokens.}
+\caption{BAcc by document-length bin. ExpertQA has 5 bins and shows clear U-shape with recovery at 2k-4k tokens. RAGTruth has 3 bins showing degradation but no recovery bins. Lfqa and TofuEval-MeetB have only 2 bins each. Most natural datasets lack samples in longer length bins to show full U-shape recovery.}
 \label{fig:degradation}
 \end{figure}
 
-Figure~\ref{fig:degradation} reveals the ``lost in the middle'' phenomenon. Only ExpertQA has samples in all 5 length bins (0-500, 500-1000, 1000-2000, 2000-4000, 4000+) enabling observation of the full U-shaped curve with recovery. Other datasets lack sufficient samples in longer bins to show the recovery phase:
+\textbf{Why only ExpertQA shows the full U-shape:} The ``lost in the middle'' phenomenon produces a U-shaped curve where BAcc is high at short lengths, drops in the middle, and recovers at very long lengths. Observing this requires samples in BOTH short ($<$1000 tokens) AND long ($>$2000 tokens) bins. Among our datasets, only ExpertQA has sufficient samples across all 5 length bins:
+
 \begin{itemize}
-    \item \textbf{ExpertQA (5 bins)}: Full U-shape visible. Bespoke-MiniCheck-7B: 58.7\% $\rightarrow$ 48.1\% $\rightarrow$ 59.1\%. flan-t5-large: 58.6\% $\rightarrow$ 49.4\% $\rightarrow$ 66.8\%.
-    \item \textbf{RAGTruth (3 bins)}: Degradation visible (84.0\% $\rightarrow$ 81.4\% for Bespoke; 78.1\% $\rightarrow$ 73.7\% for flan-t5) but no bins at 2000+ tokens to show recovery.
-    \item \textbf{Other datasets}: Insufficient length diversity for bin analysis.
+    \item \textbf{ExpertQA (5 bins, 0-500 to 4000+)}: Full U-shape visible. Bespoke-MiniCheck-7B: 58.7\% $\rightarrow$ 48.1\% $\rightarrow$ 59.1\%. flan-t5-large: 58.6\% $\rightarrow$ 49.4\% $\rightarrow$ 66.8\%.
+    \item \textbf{RAGTruth (3 bins, 0-500 to 1000-2000)}: Shows degradation but no bins at 2000+ tokens for recovery. Bespoke: 84.0\% $\rightarrow$ 81.4\%. flan-t5-large: 78.1\% $\rightarrow$ 73.7\%.
+    \item \textbf{Lfqa (2 bins)}: Insufficient for trend analysis.
+    \item \textbf{TofuEval-MeetB (2 bins)}: Insufficient for trend analysis.
 \end{itemize}
+
+This is a \textbf{data limitation}, not a model limitation. The models do exhibit the U-shape on ExpertQA. Other datasets lack sufficient samples in longer bins due to natural document length distributions.
 
 \begin{table}[t]
 \caption{Self-comparison: BAcc degradation from short to long documents.}
 \label{tab:degradation}
 \centering
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \toprule
 Model & Dataset & Short ($<$500) & Long (1k-2k) & $\Delta$ \\
 \midrule
@@ -219,7 +223,7 @@ Our results reveal fundamental trade-offs in deploying small fact-checkers for R
 
 \textbf{4. No positional defense exists.} The lack of positional rescue suggests defensive strategies cannot simply bias toward beginning/end positions.
 
-\textbf{Limitations:} (1) Adversarial injection uses synthetic hallucinations which may not reflect real-world strategies. (2) OpenRouter API models were evaluated on small sample sizes (n=10-50). (3) Only ExpertQA has sufficient length-bin coverage to show the full U-shape recovery curve.
+\textbf{Limitations:} (1) Adversarial injection uses synthetic hallucinations which may not reflect real-world strategies. (2) OpenRouter API models were evaluated on small sample sizes (n=10-50). (3) Only ExpertQA has sufficient length-bin coverage to show the full U-shape recovery curve due to natural document length distributions.
 
 \section{Conclusion}
 
@@ -235,11 +239,16 @@ We evaluated MiniCheck-style small fact-checkers under long-context and adversar
 \section*{References}
 
 {\small
-\begin{itemize}
-\item Liyan Tang, Philippe Laban, and Greg Durendt. MiniCheck: Efficient Fact-Checking of LLMs on Grounding Documents. EMNLP 2024.
-\item Philippe Laban, Tobias Dee, Jay Alammar, and Greg Durendt. The Good, The Bad, and The Summary: Do LLMs Perform as Adversarially? arXiv 2024.
-\item Boxin Wang, Chejian Xu, Shuohang Wang, et al. AlignScore: Evaluating Factual Consistency with a Unified Scoring Function. ACL 2023.
-\end{itemize}
+
+\par\vskip-.1em\parindent\hangindent=.25in\hangafter=1
+Liyan Tang, Philippe Laban, and Greg Durendt. MiniCheck: Efficient Fact-Checking of LLMs on Grounding Documents. In EMNLP, 2024.
+
+\par\vskip-.1em\parindent\hangindent=.25in\hangafter=1
+Philippe Laban, Tobias Dee, Jay Alammar, and Greg Durendt. The Good, The Bad, and The Summary: Do LLMs Perform as Adversarially? arXiv, 2024.
+
+\par\vskip-.1em\parindent\hangindent=.25in\hangafter=1
+Boxin Wang, Chejian Xu, Shuohang Wang, et al. AlignScore: Evaluating Factual Consistency with a Unified Scoring Function. In ACL, 2023.
+
 }
 
 \end{document}
