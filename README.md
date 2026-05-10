@@ -22,9 +22,10 @@ This project evaluates MiniCheck-style fact-checkers under long-context and adve
 │   ├── openrouter_client.py # API benchmarks
 │   ├── plot_*.py           # Visualization scripts
 │   └── smoke_test.py       # Quick sanity check
-├── paper.pdf               # Final report (NeurIPS 2026 format)
 └── README.md
 ```
+
+\textbf{Note}: The final report (paper.pdf) should be submitted separately to the course system, not stored in this repo.
 
 ## Setup
 
